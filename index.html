@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Zeeshan Alam">
+<meta name="description" content="FreshCart – grocery store designed &amp; built by Zeeshan Alam">
+<title>FreshCart – Grocery Store</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- LOGIN / SIGNUP -->
+<section id="loginView" class="login hidden">
+  <div class="login-art">
+    <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+    <div class="art-content">
+      <div class="logo big"><span class="ms">shopping_basket</span> FreshCart</div>
+      <h1>Taaza grocery,<br>seedha aapke ghar.</h1>
+      <p>Shop karo, cart mein daalo aur secure checkout karo. Admin ke liye products manage karne ka poora dashboard bhi hai.</p>
+      <div class="emoji-row"><span>🥑</span><span>🍎</span><span>🥛</span><span>🥕</span><span>🍞</span></div>
+    </div>
+  </div>
+  <div class="login-form-wrap">
+    <form id="loginForm" class="card login-card" autocomplete="on">
+      <div class="tabs" id="authTabs">
+        <button type="button" class="tab active" data-mode="login">Login</button>
+        <button type="button" class="tab" data-mode="signup">Sign up</button>
+      </div>
+      <h2 id="authTitle">Welcome back 👋</h2>
+      <label class="field signup-only hidden">
+        <span class="ms">person</span>
+        <input type="text" id="fullName" placeholder="Full name">
+      </label>
+      <label class="field">
+        <span class="ms">mail</span>
+        <input type="email" id="email" placeholder="Email" required>
+      </label>
+      <label class="field">
+        <span class="ms">lock</span>
+        <input type="password" id="password" placeholder="Password (min 4)" required minlength="4">
+        <button type="button" class="icon-btn" id="togglePw" aria-label="Show password"><span class="ms">visibility</span></button>
+      </label>
+      <div class="error" id="loginError"></div>
+      <button class="btn primary full" type="submit" id="authSubmit">Login</button>
+      <div class="demo-row login-only">
+        <button class="btn tonal" type="button" data-demo="customer"><span class="ms">person</span>Customer demo</button>
+        <button class="btn tonal" type="button" data-demo="admin"><span class="ms">admin_panel_settings</span>Admin demo</button>
+      </div>
+      <p class="hint login-only">Customer: <b>user@freshcart.com</b> / <b>user123</b><br>Admin: <b>admin@freshcart.com</b> / <b>admin123</b></p>
+      <p class="credit-line">Designed &amp; built with <span class="heart">💚</span> by <b>Zeeshan Alam</b></p>
+    </form>
+  </div>
+</section>
+
+<!-- APP -->
+<div id="appView" class="hidden">
+  <header class="appbar">
+    <div class="logo"><span class="ms">shopping_basket</span><span class="hide-sm">FreshCart</span></div>
+    <nav class="nav" id="nav">
+      <button class="nav-btn active" data-view="catalog"><span class="ms">storefront</span><span class="nav-label" id="navCatalogLabel">Shop</span></button>
+      <button class="nav-btn admin-only" data-view="analytics"><span class="ms">insights</span><span class="nav-label">Analytics</span></button>
+      <button class="nav-btn admin-only" data-view="offers"><span class="ms">local_offer</span><span class="nav-label">Offers</span></button>
+      <button class="nav-btn" data-view="orders"><span class="ms">receipt_long</span><span class="nav-label">Orders</span></button>
+    </nav>
+    <div class="appbar-right">
+      <button class="icon-btn cust-only cart-btn" id="cartBtn" aria-label="Open cart"><span class="ms">shopping_cart</span><span class="cart-badge hidden" id="cartBadge">0</span></button>
+      <button class="icon-btn" id="themeBtn" aria-label="Toggle theme"><span class="ms">dark_mode</span></button>
+      <div class="user-chip"><span class="avatar" id="avatar">A</span><span id="userName">Admin</span><span class="role-tag" id="roleTag">admin</span></div>
+      <button class="btn text" id="logoutBtn"><span class="ms">logout</span><span class="hide-sm">Logout</span></button>
+    </div>
+  </header>
+
+  <div class="ticker hidden" id="ticker" aria-label="Offers"><div class="ticker-track" id="tickerTrack"></div></div>
+
+  <main class="container">
+    <!-- CATALOG (admin manage / customer shop) -->
+    <div id="catalogView">
+      <div class="page-head admin-only">
+        <div><h2 class="page-title"><span class="ms">inventory_2</span>Products</h2><p class="page-sub" id="catSub">Apna inventory yahan se manage karein</p></div>
+      </div>
+      <section class="stats admin-only">
+        <div class="card stat s1"><span class="ms">inventory_2</span><div><small>Total Products</small><b id="statCount">0</b></div></div>
+        <div class="card stat s2"><span class="ms">stacks</span><div><small>Total Quantity</small><b id="statQty">0</b></div></div>
+        <div class="card stat s3"><span class="ms">payments</span><div><small>Stock Value</small><b id="statValue">₹0</b></div></div>
+        <div class="card stat s4"><span class="ms">warning</span><div><small>Low Stock (≤5)</small><b id="statLow">0</b></div></div>
+      </section>
+
+      <section class="hero cust-only">
+        <div>
+          <h2>Namaste, <span id="heroName">dost</span>! 👋</h2>
+          <p>₹500 se upar ke order par delivery free 🚚</p>
+        </div>
+        <div class="hero-emoji">🛒</div>
+      </section>
+
+      <section class="toolbar">
+        <label class="field search">
+          <span class="ms">search</span>
+          <input type="search" id="search" placeholder="Product search karein...">
+        </label>
+        <select id="sort" class="select" aria-label="Sort">
+          <option value="new">Newest first</option>
+          <option value="name">Name A–Z</option>
+          <option value="priceAsc">Price: Low → High</option>
+          <option value="priceDesc">Price: High → Low</option>
+          <option value="qty">Quantity: Low → High</option>
+        </select>
+      </section>
+      <div class="chips" id="chips"></div>
+      <section class="grid" id="grid"></section>
+      <div class="empty hidden" id="empty">
+        <div class="big-emoji">🛒</div>
+        <h3>Koi product nahi mila</h3>
+        <p class="muted">Search ya category badal kar dekhein.</p>
+      </div>
+    </div>
+
+    <!-- CHECKOUT -->
+    <div id="checkoutView" class="hidden">
+      <button class="btn text back" data-view="catalog"><span class="ms">arrow_back</span>Shopping jaari rakhein</button>
+      <div class="page-head"><div><h2 class="page-title"><span class="ms">shopping_cart_checkout</span>Checkout</h2><p class="page-sub">Address bharein, payment chunein aur order confirm karein</p></div></div>
+      <div class="checkout-grid">
+        <form id="checkoutForm" class="checkout-left" novalidate>
+          <div class="card section">
+            <h3><span class="ms">location_on</span> Delivery address</h3>
+            <div class="row2">
+              <label class="lbl">Full name<input class="input" id="cName" required></label>
+              <label class="lbl">Phone<input class="input" id="cPhone" inputmode="numeric" maxlength="10" placeholder="10-digit number" required></label>
+            </div>
+            <label class="lbl">Address<input class="input" id="cAddr" placeholder="House no, street, area" required></label>
+            <div class="row2">
+              <label class="lbl">City<input class="input" id="cCity" required></label>
+              <label class="lbl">Pincode<input class="input" id="cPin" inputmode="numeric" maxlength="6" required></label>
+            </div>
+          </div>
+
+          <div class="card section">
+            <h3><span class="ms">account_balance_wallet</span> Payment method</h3>
+            <div class="pay-methods" id="payMethods">
+              <label class="pay-opt"><input type="radio" name="pay" value="upi" checked><span class="ms">qr_code_2</span>UPI</label>
+              <label class="pay-opt"><input type="radio" name="pay" value="card"><span class="ms">credit_card</span>Card</label>
+              <label class="pay-opt"><input type="radio" name="pay" value="cod"><span class="ms">payments</span>Cash on Delivery</label>
+            </div>
+            <div class="pay-panel" id="panel-upi">
+              <label class="lbl">UPI ID<input class="input" id="upiId" placeholder="name@bank"></label>
+            </div>
+            <div class="pay-panel hidden" id="panel-card">
+              <label class="lbl">Card number<input class="input" id="cardNo" inputmode="numeric" placeholder="1234 5678 9012 3456" maxlength="19"></label>
+              <div class="row2">
+                <label class="lbl">Expiry<input class="input" id="cardExp" placeholder="MM/YY" maxlength="5" inputmode="numeric"></label>
+                <label class="lbl">CVV<input class="input" id="cardCvv" type="password" placeholder="•••" maxlength="3" inputmode="numeric"></label>
+              </div>
+              <label class="lbl">Name on card<input class="input" id="cardName"></label>
+            </div>
+            <div class="pay-panel hidden" id="panel-cod">
+              <p class="muted">Delivery ke time cash ya UPI se payment karein.</p>
+            </div>
+            <div class="error" id="checkoutError"></div>
+            <p class="secure"><span class="ms">verified_user</span> Demo payment — koi asli paisa nahi katega. Card/UPI details kahin save nahi hoti.</p>
+          </div>
+        </form>
+
+        <aside class="card section summary">
+          <h3><span class="ms">receipt</span> Order summary</h3>
+          <div id="summaryItems"></div>
+          <div class="coupon">
+            <label class="field coupon-field"><span class="ms">sell</span><input id="couponInput" placeholder="Coupon code" maxlength="14" autocomplete="off"></label>
+            <button type="button" class="btn tonal sm" id="applyCoupon">Apply</button>
+          </div>
+          <div class="coupon-msg" id="couponMsg"></div>
+          <div class="sum-row"><span>Subtotal</span><span id="sumSub"></span></div>
+          <div class="sum-row hidden" id="discRow"><span>Discount</span><span class="free" id="sumDisc"></span></div>
+          <div class="sum-row"><span>Delivery</span><span id="sumDel"></span></div>
+          <div class="sum-row total"><span>Total</span><span id="sumTotal"></span></div>
+          <button class="btn primary full" id="payBtn" form="checkoutForm" type="submit"></button>
+        </aside>
+      </div>
+    </div>
+
+    <!-- SUCCESS -->
+    <div id="successView" class="hidden">
+      <div class="card success">
+        <div class="check"><span class="ms">check</span></div>
+        <h2>Order confirm ho gaya! 🎉</h2>
+        <p class="muted" id="successText"></p>
+        <div class="success-actions">
+          <button class="btn tonal" data-view="orders">Orders dekhein</button>
+          <button class="btn primary" data-view="catalog">Aur shopping karein</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANALYTICS (admin) -->
+    <div id="analyticsView" class="hidden viz">
+      <div class="page-head">
+        <div><h2 class="page-title"><span class="ms">insights</span>Analytics</h2><p class="page-sub">Orders, revenue aur inventory ka poora haal ek nazar mein</p></div>
+        <div class="seg" id="rangeSeg" role="group" aria-label="Time range">
+          <button data-range="7" class="active"><span class="ms">date_range</span>7 din</button>
+          <button data-range="30"><span class="ms">calendar_month</span>30 din</button>
+        </div>
+      </div>
+      <div class="sample-note hidden" id="sampleNote">
+        <span class="ms">science</span>
+        <span>Charts mein <b>sample orders</b> shamil hain taaki dashboard khaali na dikhe. Asli orders aate hi wo saath dikhenge.</span>
+        <button class="btn text sm" id="clearSample"><span class="ms">delete_sweep</span>Sample hatayein</button>
+      </div>
+      <section class="kpis" id="kpis"></section>
+      <section class="viz-grid">
+        <div class="card viz-card span4" id="cRevenue"></div>
+        <div class="card viz-card span2" id="cStock"></div>
+        <div class="card viz-card span4" id="cOrders"></div>
+        <div class="card viz-card span2" id="cPay"></div>
+        <div class="card viz-card span3" id="cInventory"></div>
+        <div class="card viz-card span3" id="cTop"></div>
+        <div class="card viz-card span6" id="cLow"></div>
+      </section>
+    </div>
+
+    <!-- OFFERS (admin) -->
+    <div id="offersView" class="hidden">
+      <div class="page-head"><div><h2 class="page-title"><span class="ms">local_offer</span>Offers &amp; Sale banner</h2><p class="page-sub">Jo offer yahan launch hoga wo sabhi users ko scrolling banner mein dikhega. Coupon code se checkout par discount bhi milega.</p></div></div>
+      <div class="offers-grid">
+        <form class="card section" id="offerForm">
+          <h3><span class="ms">campaign</span> Naya offer launch karein</h3>
+          <label class="lbl">Banner message
+            <input class="input" id="oText" maxlength="70" placeholder="MEGA FRESH SALE — Extra 10% OFF" required>
+          </label>
+          <div class="row2">
+            <label class="lbl">Emoji <input class="input" id="oEmoji" maxlength="4" placeholder="🎉"></label>
+            <label class="lbl">Discount % (optional) <input class="input" id="oPercent" type="number" min="0" max="90" placeholder="10"></label>
+          </div>
+          <label class="lbl">Coupon code (optional)
+            <input class="input" id="oCode" maxlength="14" placeholder="FRESH10" style="text-transform:uppercase">
+          </label>
+          <div class="lbl">Banner color
+            <div class="swatches" id="oColors">
+              <label><input type="radio" name="oTheme" value="red" checked><i class="th-red"></i></label>
+              <label><input type="radio" name="oTheme" value="orange"><i class="th-orange"></i></label>
+              <label><input type="radio" name="oTheme" value="green"><i class="th-green"></i></label>
+              <label><input type="radio" name="oTheme" value="purple"><i class="th-purple"></i></label>
+            </div>
+          </div>
+          <div class="lbl">Preview <div class="preview" id="oPreview"></div></div>
+          <button class="btn primary full" type="submit"><span class="ms">rocket_launch</span>Launch offer</button>
+        </form>
+        <div>
+          <h3 class="list-title"><span class="ms">toggle_on</span> Aapke offers</h3>
+          <div id="offersList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ORDERS -->
+    <div id="ordersView" class="hidden">
+      <div class="page-head"><div><h2 class="page-title"><span class="ms">receipt_long</span><span id="ordersTitle">My Orders</span></h2><p class="page-sub" id="ordersSub">Aapke saare orders yahan milenge</p></div></div>
+      <div id="ordersList"></div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="logo"><span class="ms">shopping_basket</span> FreshCart</div>
+    <p>Taaza grocery, seedha aapke ghar 🌿</p>
+    <p class="credit-line">Designed &amp; built with <span class="heart">💚</span> by <a href="#" onclick="return false"><b>Zeeshan Alam</b></a></p>
+    <small>© <span id="year"></span> FreshCart · Sab haq mehfooz</small>
+  </footer>
+
+  <button class="fab admin-only" id="addBtn" aria-label="Add product"><span class="ms">add</span><span class="fab-text">Add Product</span></button>
+</div>
+
+<!-- CART DRAWER -->
+<div class="overlay drawer-wrap hidden" id="cartOverlay">
+  <aside class="drawer" id="cartDrawer">
+    <div class="dialog-head">
+      <h3>Your Cart 🛒</h3>
+      <button class="icon-btn" id="closeCart" aria-label="Close"><span class="ms">close</span></button>
+    </div>
+    <div class="cart-items" id="cartItems"></div>
+    <div class="cart-foot">
+      <div class="sum-row total"><span>Subtotal</span><span id="cartSub">₹0</span></div>
+      <button class="btn primary full" id="goCheckout">Checkout par jayein <span class="ms">arrow_forward</span></button>
+    </div>
+  </aside>
+</div>
+
+<!-- PRODUCT MODAL (admin) -->
+<div class="overlay hidden" id="modal">
+  <form class="card dialog" id="productForm">
+    <div class="dialog-head">
+      <h3 id="modalTitle">Add Product</h3>
+      <button type="button" class="icon-btn" id="closeModal" aria-label="Close"><span class="ms">close</span></button>
+    </div>
+    <input type="hidden" id="pid">
+    <label class="lbl">Product name
+      <input class="input" id="pname" placeholder="e.g. Basmati Rice" required maxlength="40">
+    </label>
+    <div class="row2">
+      <label class="lbl">Category
+        <select class="input" id="pcat"></select>
+      </label>
+      <label class="lbl">Unit
+        <select class="input" id="punit">
+          <option>kg</option><option>g</option><option>litre</option><option>ml</option><option>piece</option><option>dozen</option><option>packet</option>
+        </select>
+      </label>
+    </div>
+    <div class="row2">
+      <label class="lbl">Rate (₹ per unit)
+        <input class="input" id="pprice" type="number" min="0" step="0.01" placeholder="0.00" required>
+      </label>
+      <label class="lbl">Quantity
+        <input class="input" id="pqty" type="number" min="0" step="1" placeholder="0" required>
+      </label>
+    </div>
+    <label class="lbl">Emoji icon (optional)
+      <input class="input" id="pemoji" placeholder="🍚" maxlength="4">
+    </label>
+    <div class="dialog-actions">
+      <button type="button" class="btn text" id="cancelBtn"><span class="ms">close</span>Cancel</button>
+      <button type="submit" class="btn primary"><span class="ms">check</span>Save</button>
+    </div>
+  </form>
+</div>
+
+<!-- DELETE CONFIRM -->
+<div class="overlay hidden" id="confirm">
+  <div class="card dialog small center">
+    <div class="trash-badge"><span class="ms">delete</span></div>
+    <h3>Delete product?</h3>
+    <p class="muted" id="confirmText"></p>
+    <div class="dialog-actions center-actions">
+      <button class="btn text" id="confirmNo"><span class="ms">close</span>Cancel</button>
+      <button class="btn danger" id="confirmYes"><span class="ms">delete</span>Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- PAYMENT PROCESSING -->
+<div class="overlay hidden" id="processing">
+  <div class="card dialog small center">
+    <div class="spinner"></div>
+    <h3>Payment process ho raha hai...</h3>
+    <p class="muted">Kripya page band na karein</p>
+  </div>
+</div>
+
+<div class="viz-tip" id="vizTip"></div>
+<div class="toast" id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
