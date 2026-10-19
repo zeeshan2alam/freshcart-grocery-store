@@ -61,7 +61,8 @@
   };
   function resolveApiBase() {
     const q = new URLSearchParams(location.search).get('api');
-    if (q !== null) { try { q && q !== 'off' ? localStorage.setItem('fc_api', q.replace(/\/$/, '')) : localStorage.removeItem('fc_api'); } catch {} }
+    // only real http(s) URLs are accepted; "off" / empty clears the override; anything else is ignored
+    if (q !== null) { try { /^https?:\/\//i.test(q) ? localStorage.setItem('fc_api', q.replace(/\/$/, '')) : (q === 'off' || q === '') && localStorage.removeItem('fc_api'); } catch {} }
     let saved = ''; try { saved = localStorage.getItem('fc_api') || ''; } catch {}
     return (saved || CFG.API_BASE || '').replace(/\/$/, '');
   }
