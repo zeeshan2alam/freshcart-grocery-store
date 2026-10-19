@@ -41,7 +41,7 @@
       </label>
       <label class="field">
         <span class="ms">lock</span>
-        <input type="password" id="password" placeholder="Password (min 4)" required minlength="4">
+        <input type="password" id="password" placeholder="Password (min 6)" required minlength="6">
         <button type="button" class="icon-btn" id="togglePw" aria-label="Show password"><span class="ms">visibility</span></button>
       </label>
       <div class="error" id="loginError"></div>
@@ -51,6 +51,7 @@
         <button class="btn tonal" type="button" data-demo="admin"><span class="ms">admin_panel_settings</span>Admin demo</button>
       </div>
       <p class="hint login-only">Customer: <b>user@freshcart.com</b> / <b>user123</b><br>Admin: <b>admin@freshcart.com</b> / <b>admin123</b></p>
+      <p class="mode-badge"></p>
       <p class="credit-line">Designed &amp; built with <span class="heart">💚</span> by <b>Zeeshan Alam</b></p>
     </form>
   </div>
@@ -265,6 +266,7 @@
     <div class="logo"><span class="ms">shopping_basket</span> FreshCart</div>
     <p>Taaza grocery, seedha aapke ghar 🌿</p>
     <p class="credit-line">Designed &amp; built with <span class="heart">💚</span> by <a href="#" onclick="return false"><b>Zeeshan Alam</b></a></p>
+    <p class="mode-badge"></p>
     <small>© <span id="year"></span> FreshCart · Sab haq mehfooz</small>
   </footer>
 
@@ -349,6 +351,17 @@
 
 <div class="viz-tip" id="vizTip"></div>
 <div class="toast" id="toast"></div>
+<!-- shown only while we wait for the API server to wake up -->
+<div class="overlay hidden" id="boot">
+  <div class="card dialog small center">
+    <div class="spinner"></div>
+    <h3>Server se connect ho raha hai…</h3>
+    <p class="muted">Free server pehli baar jaagne mein 30–60 second le sakta hai.</p>
+    <button class="btn tonal" id="bootSkip">Demo mode mein chalayein</button>
+  </div>
+</div>
+
+<script src="config.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

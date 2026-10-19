@@ -25,7 +25,8 @@
   let cart = [];
   let view = 'catalog', activeCat = 'All', pendingDelete = null, toastTimer, authMode = 'login';
 
-  const persistProducts = () => save(KEYS.products, products);
+  // local demo data is only written when there is no server
+  const persistProducts = () => { if (!API.on) save(KEYS.products, products); };
   const persistCart = () => save(KEYS.cart + session.email, cart);
   const isAdmin = () => session && session.role === 'admin';
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -33,6 +34,63 @@
   const emojiOf = p => p.emoji || CAT_EMOJI[p.cat] || '🛒';
   const open = id => $(id).classList.remove('hidden');
   const close = id => $(id).classList.add('hidden');
+
+  /* ---------- server connection ----------
+     With an API URL configured (config.js, or ?api=<url> once) and reachable, data lives on the FastAPI backend.
+     Otherwise the app falls back to a localStorage-only demo mode, so the static site always works. */
+  const CFG = window.FRESHCART_CONFIG || {};
+  const API = {
+    base: '', on: false, token: load('fc_token', null), abort: null,
+    async call(path, { method = 'GET', body } = {}) {
+      let res;
+      try {
+        res = await fetch(this.base + path, {
+          method, body: body ? JSON.stringify(body) : undefined,
+          headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...(this.token ? { Authorization: 'Bearer ' + this.token } : {}) }
+        });
+      } catch { throw Object.assign(new Error('Server se connect nahi ho paya. Thodi der baad try karein.'), { status: 0 }); }
+      if (res.status === 204) return null;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const d = data.detail;
+        const msg = Array.isArray(d) ? d.map(x => String(x.msg).replace(/^Value error, /, '')).join(' · ') : d || 'Kuch galat ho gaya.';
+        throw Object.assign(new Error(msg), { status: res.status });
+      }
+      return data;
+    }
+  };
+  function resolveApiBase() {
+    const q = new URLSearchParams(location.search).get('api');
+    if (q !== null) { try { q && q !== 'off' ? localStorage.setItem('fc_api', q.replace(/\/$/, '')) : localStorage.removeItem('fc_api'); } catch {} }
+    let saved = ''; try { saved = localStorage.getItem('fc_api') || ''; } catch {}
+    return (saved || CFG.API_BASE || '').replace(/\/$/, '');
+  }
+  async function detectServer() {
+    API.base = resolveApiBase(); API.on = false;
+    if (!API.base) return;
+    API.abort = new AbortController();
+    const kill = setTimeout(() => API.abort.abort(), 70000);
+    try { API.on = (await fetch(API.base + '/health', { signal: API.abort.signal })).ok; } catch { API.on = false; }
+    clearTimeout(kill);
+  }
+  function setModeBadge() {
+    const html = API.on ? '<span class="dotlive"></span> Live server se connected' : '<span class="dotdemo"></span> Demo mode · data sirf is browser mein';
+    document.querySelectorAll('.mode-badge').forEach(b => { b.innerHTML = html; b.classList.toggle('live', API.on); });
+  }
+
+  const fromProduct = p => ({ id: String(p.id), name: p.name, cat: p.category, unit: p.unit, price: p.price, qty: p.stock, emoji: p.emoji, ts: Date.parse(p.created_at) });
+  const toProduct = d => ({ name: d.name, category: d.cat, unit: d.unit, price: d.price, stock: d.qty, emoji: d.emoji });
+  const fromOffer = o => ({ id: String(o.id), text: o.text, emoji: o.emoji, percent: o.percent, code: o.code || '', theme: o.theme, active: o.active });
+  const fromOrder = o => ({
+    id: o.code, email: o.user_email, name: o.customer_name, phone: o.phone, address: `${o.address}, ${o.city} - ${o.pincode}`,
+    items: o.items.map(i => ({ name: i.name, unit: i.unit, price: i.price, qty: i.qty, emoji: i.emoji })),
+    sub: o.subtotal, disc: o.discount, coupon: o.coupon, del: o.delivery, total: o.total, method: o.method, status: o.status,
+    ts: Date.parse(o.created_at), sample: o.is_sample
+  });
+  const refreshProducts = async () => { products = (await API.call('/products')).map(fromProduct); };
+  const refreshOffers = async () => { offers = (await API.call(isAdmin() ? '/offers/all' : '/offers')).map(fromOffer); };
+  const refreshOrders = async () => { orders = (await API.call('/orders')).map(fromOrder); };
+  async function refreshData() { if (API.on) await Promise.all([refreshProducts(), refreshOffers(), session ? refreshOrders() : null]); }
 
   function toast(msg) {
     const t = $('toast'); t.textContent = msg; t.classList.add('show');
@@ -60,9 +118,23 @@
   }
   $('authTabs').onclick = e => { const t = e.target.closest('.tab'); if (t) setAuthMode(t.dataset.mode); };
 
-  $('loginForm').onsubmit = e => {
+  $('loginForm').onsubmit = async e => {
     e.preventDefault();
     const email = $('email').value.trim().toLowerCase(), pw = $('password').value, err = $('loginError');
+    if (API.on) {
+      const btn = $('authSubmit'), signup = authMode === 'signup';
+      btn.disabled = true; err.textContent = '';
+      try {
+        const r = await API.call(signup ? '/auth/register' : '/auth/login', {
+          method: 'POST', body: signup ? { name: $('fullName').value.trim(), email, password: pw } : { email, password: pw }
+        });
+        API.token = r.access_token; save('fc_token', r.access_token);
+        await startSession({ email: r.user.email, name: r.user.name, role: r.user.role, api: true });
+        if (signup) toast('Account ban gaya 🎉');
+      } catch (ex) { err.textContent = ex.message; }
+      btn.disabled = false;
+      return;
+    }
     if (authMode === 'signup') {
       if (email === ADMIN.email || users.some(u => u.email === email)) { err.textContent = 'Ye email pehle se registered hai.'; return; }
       const u = { name: $('fullName').value.trim(), email, password: pw };
@@ -84,36 +156,41 @@
     p.type = show ? 'text' : 'password';
     $('togglePw').firstElementChild.textContent = show ? 'visibility_off' : 'visibility';
   };
-  function startSession(s) { session = s; save(KEYS.session, s); $('loginForm').reset(); go('catalog'); showView(); }
-  $('logoutBtn').onclick = () => {
-    try { localStorage.removeItem(KEYS.session); } catch {}
-    session = null; close('cartOverlay'); setAuthMode('login'); showView();
-  };
+  async function startSession(s) { session = s; save(KEYS.session, s); $('loginForm').reset(); view = 'catalog'; await showView(); }
+  function logout() {
+    try { localStorage.removeItem(KEYS.session); localStorage.removeItem('fc_token'); } catch {}
+    session = null; API.token = null; close('cartOverlay'); setAuthMode('login'); showView();
+  }
+  $('logoutBtn').onclick = logout;
 
-  function showView() {
-    renderTicker();
+  async function showView() {
     $('loginView').classList.toggle('hidden', !!session);
     $('appView').classList.toggle('hidden', !session);
-    if (!session) { document.body.removeAttribute('data-role'); return; }
+    if (!session) { document.body.removeAttribute('data-role'); renderTicker(); return; }
     document.body.dataset.role = session.role;
+    if (API.on) {
+      try { await refreshData(); }
+      catch (ex) { if (ex.status === 401) { logout(); toast(ex.message); return; } toast(ex.message); }
+    }
+    renderTicker();
     cart = isAdmin() ? [] : load(KEYS.cart + session.email, []);
     $('userName').textContent = session.name.split(' ')[0];
     $('avatar').textContent = session.name[0].toUpperCase();
     $('roleTag').textContent = session.role;
     $('heroName').textContent = session.name.split(' ')[0];
     $('navCatalogLabel').textContent = isAdmin() ? 'Products' : 'Shop';
-    go(view);
+    go(view, false);
   }
 
   /* ---------- navigation ---------- */
-  function go(v) {
+  function go(v, fresh = true) {
     if (v === 'checkout' && (isAdmin() || !cart.length)) v = 'catalog';
     if ((v === 'analytics' || v === 'offers') && !isAdmin()) v = 'catalog';
     view = v;
     ['catalog', 'checkout', 'success', 'orders', 'analytics', 'offers'].forEach(n => {
       const el = $(n + 'View'), show = n === v;
       el.classList.toggle('hidden', !show);
-      if (show) { el.classList.remove('view-in'); void el.offsetWidth; el.classList.add('view-in'); }
+      if (show && fresh) { el.classList.remove('view-in'); void el.offsetWidth; el.classList.add('view-in'); }
     });
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === v));
     if (v === 'analytics') renderAnalytics();
@@ -121,7 +198,12 @@
     if (v === 'checkout') renderCheckout();
     if (v === 'orders') renderOrders();
     if (v === 'catalog') render();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (fresh) window.scrollTo({ top: 0, behavior: 'smooth' });
+    // pick up changes made by other users / sessions, then repaint if we are still on the same page
+    if (fresh && API.on && session) {
+      const job = v === 'orders' || v === 'analytics' ? refreshOrders() : v === 'catalog' ? refreshProducts() : null;
+      if (job) job.then(() => { if (view === v) go(v, false); }).catch(() => {});
+    }
   }
   document.addEventListener('click', e => {
     const b = e.target.closest('[data-view]');
@@ -236,7 +318,7 @@
   $('confirm').onclick = e => { if (e.target === $('confirm')) close('confirm'); };
   document.addEventListener('keydown', e => { if (e.key === 'Escape') ['modal', 'confirm', 'cartOverlay'].forEach(close); });
 
-  $('productForm').onsubmit = e => {
+  $('productForm').onsubmit = async e => {
     e.preventDefault();
     const id = $('pid').value;
     const data = {
@@ -244,9 +326,18 @@
       price: parseFloat($('pprice').value) || 0, qty: parseInt($('pqty').value, 10) || 0, emoji: $('pemoji').value.trim()
     };
     if (!data.name) return;
-    if (id) { Object.assign(products.find(p => p.id === id), data); toast('Product update ho gaya ✅'); }
-    else { products.push({ ...data, id: 'p' + Date.now(), ts: Date.now() }); toast('Product add ho gaya 🎉'); }
-    persistProducts(); close('modal'); render();
+    if (API.on) {
+      try {
+        await API.call(id ? '/products/' + id : '/products', { method: id ? 'PUT' : 'POST', body: toProduct(data) });
+        await refreshProducts();
+      } catch (ex) { return toast(ex.message); }
+      toast(id ? 'Product update ho gaya ✅' : 'Product add ho gaya 🎉');
+    } else {
+      if (id) { Object.assign(products.find(p => p.id === id), data); toast('Product update ho gaya ✅'); }
+      else { products.push({ ...data, id: 'p' + Date.now(), ts: Date.now() }); toast('Product add ho gaya 🎉'); }
+      persistProducts();
+    }
+    close('modal'); render();
   };
 
   $('grid').onclick = e => {
@@ -260,9 +351,12 @@
     }
   };
   $('confirmNo').onclick = () => close('confirm');
-  $('confirmYes').onclick = () => {
-    products = products.filter(p => p.id !== pendingDelete);
-    persistProducts(); close('confirm'); render(); toast('Product delete ho gaya 🗑️');
+  $('confirmYes').onclick = async () => {
+    if (API.on) {
+      try { await API.call('/products/' + pendingDelete, { method: 'DELETE' }); await refreshProducts(); }
+      catch (ex) { return toast(ex.message); }
+    } else { products = products.filter(p => p.id !== pendingDelete); persistProducts(); }
+    close('confirm'); render(); toast('Product delete ho gaya 🗑️');
   };
 
   /* ---------- checkout ---------- */
@@ -318,20 +412,41 @@
     const short = cartLines().find(l => l.qty > l.p.qty);
     if (short) { $('checkoutError').textContent = `"${short.p.name}" ka itna stock nahi bacha.`; return; }
     open('processing');
-    setTimeout(placeOrder, 1800);
+    setTimeout(placeOrder, 1800);   // simulated payment gateway delay
   };
 
-  function placeOrder() {
+  async function placeOrder() {
     const lines = cartLines(), { sub, disc, del, total } = totals(), method = $('payMethods').querySelector('input:checked').value;
-    const order = {
-      id: 'FC' + Date.now().toString().slice(-8), email: session.email, name: $('cName').value.trim(),
-      address: `${$('cAddr').value.trim()}, ${$('cCity').value.trim()} - ${$('cPin').value.trim()}`, phone: $('cPhone').value.trim(),
-      items: lines.map(l => ({ name: l.p.name, unit: l.p.unit, price: l.p.price, qty: l.qty, emoji: emojiOf(l.p) })),
-      sub, disc, coupon: coupon ? coupon.code : '', del, total, method, status: method === 'cod' ? 'Placed · Pay on delivery' : 'Paid', ts: Date.now()
-    };
-    lines.forEach(l => l.p.qty -= l.qty);
-    persistProducts();
-    orders.unshift(order); save(KEYS.orders, orders);
+    let order;
+    if (API.on) {
+      // the server recomputes prices, discount, delivery and stock; card/UPI details never leave the browser
+      try {
+        const r = await API.call('/orders', {
+          method: 'POST',
+          body: {
+            items: lines.map(l => ({ product_id: Number(l.p.id), qty: l.qty })),
+            customer_name: $('cName').value.trim(), phone: $('cPhone').value.trim(), address: $('cAddr').value.trim(),
+            city: $('cCity').value.trim(), pincode: $('cPin').value.trim(), method, coupon: coupon ? coupon.code : null
+          }
+        });
+        order = fromOrder(r);
+        await Promise.all([refreshProducts(), refreshOrders()]);
+      } catch (ex) {
+        close('processing'); $('checkoutError').textContent = ex.message;
+        if (ex.status === 401) logout(); else refreshProducts().then(renderCheckout).catch(() => {});
+        return;
+      }
+    } else {
+      order = {
+        id: 'FC' + Date.now().toString().slice(-8), email: session.email, name: $('cName').value.trim(),
+        address: `${$('cAddr').value.trim()}, ${$('cCity').value.trim()} - ${$('cPin').value.trim()}`, phone: $('cPhone').value.trim(),
+        items: lines.map(l => ({ name: l.p.name, unit: l.p.unit, price: l.p.price, qty: l.qty, emoji: emojiOf(l.p) })),
+        sub, disc, coupon: coupon ? coupon.code : '', del, total, method, status: method === 'cod' ? 'Placed · Pay on delivery' : 'Paid', ts: Date.now()
+      };
+      lines.forEach(l => l.p.qty -= l.qty);
+      persistProducts();
+      orders.unshift(order); save(KEYS.orders, orders);
+    }
     cart = []; persistCart(); renderCart();
     coupon = null; $('couponInput').value = ''; $('couponMsg').textContent = '';
     $('checkoutForm').reset(); $('payMethods').onchange();
@@ -380,7 +495,7 @@
 
   /* ================= offers & marquee ================= */
   let offers = load('fc_offers', null) || [{ id: 'o1', text: 'MEGA FRESH SALE — Extra 10% OFF on everything', emoji: '🎉', percent: 10, code: 'FRESH10', theme: 'red', active: true }];
-  const saveOffers = () => save('fc_offers', offers);
+  const saveOffers = () => { if (!API.on) save('fc_offers', offers); };
   const pill = o => `<span class="tk th-${esc(o.theme)}"><em class="sale-badge">SALE</em><span class="tk-emoji">${esc(o.emoji || '🔥')}</span>${esc(o.text)}${o.code ? ` <button type="button" class="tk-code" data-code="${esc(o.code)}" title="Code copy karein">${esc(o.code)}</button>` : ''}</span>`;
 
   function renderTicker() {
@@ -419,25 +534,39 @@
   }
   ['oText', 'oEmoji', 'oCode', 'oPercent'].forEach(id => $(id).addEventListener('input', updatePreview));
   $('oColors').addEventListener('change', updatePreview);
-  $('offerForm').onsubmit = e => {
+  $('offerForm').onsubmit = async e => {
     e.preventDefault();
     const code = $('oCode').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     const percent = Math.max(0, Math.min(90, parseInt($('oPercent').value, 10) || 0));
+    const theme = document.querySelector('input[name=oTheme]:checked').value;
     if (code && !percent) return toast('Coupon code ke saath discount % bhi daalein');
     if (code && offers.some(o => o.code === code)) return toast('Ye coupon code pehle se hai');
-    offers.unshift({ id: 'o' + Date.now(), text: $('oText').value.trim(), emoji: $('oEmoji').value.trim(), percent, code,
-      theme: document.querySelector('input[name=oTheme]:checked').value, active: true });
-    saveOffers(); $('offerForm').reset(); renderOffers(); renderTicker(); toast('Offer live ho gaya 🚀'); confetti(40);
+    if (API.on) {
+      try {
+        await API.call('/offers', { method: 'POST', body: { text: $('oText').value.trim(), emoji: $('oEmoji').value.trim(), percent, code: code || null, theme } });
+        await refreshOffers();
+      } catch (ex) { return toast(ex.message); }
+    } else {
+      offers.unshift({ id: 'o' + Date.now(), text: $('oText').value.trim(), emoji: $('oEmoji').value.trim(), percent, code, theme, active: true });
+      saveOffers();
+    }
+    $('offerForm').reset(); renderOffers(); renderTicker(); toast('Offer live ho gaya 🚀'); confetti(40);
   };
-  $('offersList').addEventListener('change', e => {
+  $('offersList').addEventListener('change', async e => {
     const t = e.target.closest('[data-toggle]'); if (!t) return;
-    offers.find(o => o.id === t.dataset.toggle).active = t.checked;
-    saveOffers(); renderOffers(); renderTicker();
+    if (API.on) {
+      try { await API.call('/offers/' + t.dataset.toggle, { method: 'PATCH', body: { active: t.checked } }); await refreshOffers(); }
+      catch (ex) { toast(ex.message); }
+    } else { offers.find(o => o.id === t.dataset.toggle).active = t.checked; saveOffers(); }
+    renderOffers(); renderTicker();
   });
-  $('offersList').addEventListener('click', e => {
+  $('offersList').addEventListener('click', async e => {
     const d = e.target.closest('[data-delo]'); if (!d) return;
-    offers = offers.filter(o => o.id !== d.dataset.delo);
-    saveOffers(); renderOffers(); renderTicker(); toast('Offer hata diya 🗑️');
+    if (API.on) {
+      try { await API.call('/offers/' + d.dataset.delo, { method: 'DELETE' }); await refreshOffers(); }
+      catch (ex) { return toast(ex.message); }
+    } else { offers = offers.filter(o => o.id !== d.dataset.delo); saveOffers(); }
+    renderOffers(); renderTicker(); toast('Offer hata diya 🗑️');
   });
 
   /* ================= analytics ================= */
@@ -575,7 +704,12 @@
     if (t) { tableOpen.has(t.dataset.tbl) ? tableOpen.delete(t.dataset.tbl) : tableOpen.add(t.dataset.tbl); renderAnalytics(); }
     if (rs) { go('catalog'); openForm(products.find(p => p.id === rs.dataset.restock)); }
   });
-  $('clearSample').onclick = () => { orders = orders.filter(o => !o.sample); save(KEYS.orders, orders); renderAnalytics(); toast('Sample data hata diya 🧹'); };
+  $('clearSample').onclick = async () => {
+    if (API.on) {
+      try { await API.call('/orders/sample', { method: 'DELETE' }); await refreshOrders(); } catch (ex) { return toast(ex.message); }
+    } else { orders = orders.filter(o => !o.sample); save(KEYS.orders, orders); }
+    renderAnalytics(); toast('Sample data hata diya 🧹');
+  };
 
   /* sample orders so the charts aren't empty on first run */
   function seedSampleOrders() {
@@ -671,8 +805,27 @@
   });
   $('grid').addEventListener('pointerout', e => { const c = e.target.closest('.product'); if (c && !c.contains(e.relatedTarget)) c.style.transform = ''; });
 
-  $('year').textContent = new Date().getFullYear();
-  seedSampleOrders();
-  setAuthMode('login');
-  showView();
+  /* ================= boot ================= */
+  async function init() {
+    $('year').textContent = new Date().getFullYear();
+    // a free host can take ~a minute to wake up, so tell the visitor and let them skip to demo mode
+    const slow = setTimeout(() => open('boot'), 700);
+    $('bootSkip').onclick = () => API.abort && API.abort.abort();
+    await detectServer();
+    clearTimeout(slow); close('boot');
+
+    if (API.on) {
+      if (session && session.api && API.token) {
+        try { const u = await API.call('/auth/me'); session = { email: u.email, name: u.name, role: u.role, api: true }; save(KEYS.session, session); }
+        catch (ex) { if (ex.status === 401) { session = null; API.token = null; } }
+      } else session = null;
+    } else {
+      if (session && session.api) session = null;   // that login belonged to the server
+      seedSampleOrders();
+    }
+    setModeBadge();
+    setAuthMode('login');
+    await showView();
+  }
+  init();
 })();
